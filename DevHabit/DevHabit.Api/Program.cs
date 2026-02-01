@@ -1,3 +1,7 @@
+using DevHabit.Api.Database;
+using DevHabit.Api.Extensions;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Migrations;
 using OpenTelemetry;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
@@ -8,6 +12,14 @@ WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 builder.Services.AddControllers();
 
 builder.Services.AddOpenApi();
+
+builder.Services.AddDbContext<ApplicationDbContext>(opt =>
+
+    opt
+       .UseNpgsql(
+         builder.Configuration.GetConnectionString("PostgresDatabase"),
+         npgsql => npgsql.MigrationsHistoryTable(HistoryRepository.DefaultTableName, Schemas.Application))
+       .UseSnakeCaseNamingConvention());
 
 builder.Services.AddOpenTelemetry()
     .ConfigureResource(resource => resource.AddService(builder.Environment.ApplicationName))
@@ -31,6 +43,8 @@ WebApplication app = builder.Build();
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
+
+    await app.ApplyMigrations();    
 }
 
 app.UseHttpsRedirection();
