@@ -10,7 +10,13 @@ using OpenTelemetry.Trace;
 
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 
-builder.Services.AddControllers();
+builder.Services.AddControllers(options =>
+{
+    //Added to return 406 when the requested format is not supported    
+    options.ReturnHttpNotAcceptable = true;
+
+})//Added XmlSerializerFormatters() to support XML format
+.AddXmlSerializerFormatters();
 
 builder.Services.AddOpenApi();
 
@@ -46,7 +52,7 @@ if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
 
-    await app.ApplyMigrations();    
+    await app.ApplyMigrations();
 }
 
 app.UseHttpsRedirection();
