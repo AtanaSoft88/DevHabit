@@ -11,12 +11,12 @@ using OpenTelemetry.Trace;
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddControllers(options =>
-{
-    //Added to return 406 when the requested format is not supported    
-    options.ReturnHttpNotAcceptable = true;
+{    
+    options.ReturnHttpNotAcceptable = true; //Added to return 406 when the requested format is not supported    
 
-})//Added XmlSerializerFormatters() to support XML format
-.AddXmlSerializerFormatters();
+})
+.AddNewtonsoftJson() //Added NewtonsoftJson support
+.AddXmlSerializerFormatters(); //Added XmlSerializerFormatters() to support XML format
 
 builder.Services.AddOpenApi();
 
