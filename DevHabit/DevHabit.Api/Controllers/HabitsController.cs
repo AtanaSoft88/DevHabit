@@ -39,7 +39,7 @@ public sealed class HabitsController(ApplicationDbContext dbContext) : Controlle
         return habit is null ?
                      NotFound() :
                      Ok(habit);
-    }    
+    }
 
     [HttpPost]
     public async Task<ActionResult<HabitDto>> CreateHabit(CreateHabitDto createHabitDto)
@@ -52,7 +52,7 @@ public sealed class HabitsController(ApplicationDbContext dbContext) : Controlle
 
         HabitDto habitDto = habit.ToDto();
 
-        return CreatedAtAction(nameof(GetHabitById), new {id = habitDto.Id }, habitDto);
+        return CreatedAtAction(nameof(GetHabitById), new { id = habitDto.Id }, habitDto);
     }
 
     [HttpPut("{id}")]
@@ -69,7 +69,7 @@ public sealed class HabitsController(ApplicationDbContext dbContext) : Controlle
 
         await dbContext.SaveChangesAsync();
 
-        return NoContent();        
+        return NoContent();
     }
 
     [HttpPatch("{id}")] //Using library 'Microsoft.AspNetCore.JsonPatch' for JSON Patch support
@@ -93,10 +93,24 @@ public sealed class HabitsController(ApplicationDbContext dbContext) : Controlle
 
         habit.Name = habitDto.Name;
         habit.Description = habitDto.Description;
-        habit.UpdatedAtUtc = DateTime.UtcNow;   
+        habit.UpdatedAtUtc = DateTime.UtcNow;
 
         await dbContext.SaveChangesAsync();
 
+        return NoContent();
+    }
+
+    [HttpDelete("{id}")]
+    public async Task<ActionResult> DeleteHabit(string id)
+    {
+        Habit? habit = await dbContext.Habits
+            .FirstOrDefaultAsync(h => h.Id == id);
+        if (habit is null)
+        {
+            return NotFound();
+        }
+        dbContext.Habits.Remove(habit);
+        await dbContext.SaveChangesAsync();
         return NoContent();
     }
 }
