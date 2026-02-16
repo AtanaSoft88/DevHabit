@@ -70,7 +70,7 @@ public sealed class HabitsController(ApplicationDbContext dbContext) : Controlle
         await dbContext.SaveChangesAsync();
 
         return NoContent();
-    }
+    }    
 
     [HttpPatch("{id}")] //Using library 'Microsoft.AspNetCore.JsonPatch' for JSON Patch support
     public async Task<ActionResult> PatchHabit(string id, JsonPatchDocument<HabitDto> patchDocument)
