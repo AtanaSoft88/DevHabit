@@ -489,3 +489,4 @@ dotnet_style_qualification_for_field = false:error
 dotnet_style_qualification_for_property = false:error
 dotnet_style_qualification_for_method = false:error
 dotnet_style_qualification_for_event = false:error
+dotnet_diagnostic.CA1823.severity = suggestion

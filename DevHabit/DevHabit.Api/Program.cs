@@ -1,5 +1,7 @@
 using DevHabit.Api.Database;
 using DevHabit.Api.Extensions;
+using DevHabit.Api.Middleware;
+using FluentValidation;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Migrations;
 using Npgsql;
@@ -17,6 +19,25 @@ builder.Services.AddControllers(options =>
 })
 .AddNewtonsoftJson() //Added NewtonsoftJson support
 .AddXmlSerializerFormatters(); //Added XmlSerializerFormatters() to support XML format
+
+// Add FluentValidation support from the assembly containing the Program class
+builder.Services.AddValidatorsFromAssemblyContaining<Program>();
+
+// Add ProblemDetails support and customize it to include the requestId in the extensions
+builder.Services.AddProblemDetails(options => 
+{
+    options.CustomizeProblemDetails = context =>
+    {
+        // Add the requestId to the ProblemDetails extensions for better traceability
+        context.ProblemDetails.Extensions.TryAdd("requestId", context.HttpContext.TraceIdentifier);
+    };
+});
+
+// Register the validation exception handler middleware to handle FluentValidation exceptions
+builder.Services.AddExceptionHandler<ValidationExceptionHandler>();
+
+// Register the global exception handler middleware
+builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 
 builder.Services.AddOpenApi();
 
@@ -56,6 +77,9 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+
+// Use the global exception handler middleware to catch unhandled exceptions and return ProblemDetails responses
+app.UseExceptionHandler();
 
 app.MapControllers();
 

@@ -20,9 +20,10 @@ public sealed class Habit
 }
 public enum HabitType
 {
-    Daily = 0,
-    Weekly = 1,
-    Monthly = 2
+    None = 0,
+    Binary = 1,
+    Measurable = 2
+
 }
 public enum HabitStatus
 {

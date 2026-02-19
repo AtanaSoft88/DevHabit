@@ -1,9 +1,13 @@
 ﻿using System.Linq.Expressions;
 using DevHabit.Api.Database;
 using DevHabit.Api.DTOs.Habits;
+using DevHabit.Api.DTOs.Tags;
 using DevHabit.Api.Entities;
+using FluentValidation;
+using FluentValidation.Results;
 using Microsoft.AspNetCore.JsonPatch;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.Infrastructure;
 using Microsoft.EntityFrameworkCore;
 using static DevHabit.Api.DTOs.Habits.HabitMappings;
 
@@ -42,14 +46,18 @@ public sealed class HabitsController(ApplicationDbContext dbContext) : Controlle
     }
 
     [HttpPost]
-    public async Task<ActionResult<HabitDto>> CreateHabit(CreateHabitDto createHabitDto)
-    {
+    public async Task<ActionResult<HabitDto>> CreateHabit(CreateHabitDto createHabitDto,
+                                                          IValidator<CreateHabitDto> validator)
+    {   
+        // Validation exception handler responsible for converting specific validation exception into Problem details responce.
+        await validator.ValidateAndThrowAsync(createHabitDto);
+
         Habit habit = createHabitDto.ToEntity();
 
         dbContext.Habits.Add(habit);
-
+        
         await dbContext.SaveChangesAsync();
-
+        
         HabitDto habitDto = habit.ToDto();
 
         return CreatedAtAction(nameof(GetHabitById), new { id = habitDto.Id }, habitDto);
