@@ -104,6 +104,7 @@ csharp_style_prefer_extended_property_pattern = true:suggestion
 csharp_style_var_for_built_in_types = false:error
 csharp_style_var_when_type_is_apparent = true:error
 csharp_style_var_elsewhere = false:error
+dotnet_diagnostic.S1854.severity = suggestion
 
 [*.{cs,vb}]
 dotnet_style_prefer_simplified_boolean_expressions = true:suggestion
@@ -490,3 +491,4 @@ dotnet_style_qualification_for_property = false:error
 dotnet_style_qualification_for_method = false:error
 dotnet_style_qualification_for_event = false:error
 dotnet_diagnostic.CA1823.severity = suggestion
+dotnet_diagnostic.CA1862.severity = suggestion
