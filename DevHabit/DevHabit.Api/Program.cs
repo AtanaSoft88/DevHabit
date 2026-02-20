@@ -1,6 +1,9 @@
 using DevHabit.Api.Database;
+using DevHabit.Api.DTOs.Habits;
+using DevHabit.Api.Entities;
 using DevHabit.Api.Extensions;
 using DevHabit.Api.Middleware;
+using DevHabit.Api.Services.Sorting;
 using FluentValidation;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Migrations;
@@ -49,6 +52,7 @@ builder.Services.AddDbContext<ApplicationDbContext>(opt =>
          npgsql => npgsql.MigrationsHistoryTable(HistoryRepository.DefaultTableName, Schemas.Application))
        .UseSnakeCaseNamingConvention());
 
+// Configure OpenTelemetry for tracing and metrics collection, including instrumentation for HTTP client, ASP.NET Core, and Npgsql, and set up the OTLP exporter to send telemetry data to a compatible backend
 builder.Services.AddOpenTelemetry()
     .ConfigureResource(resource => resource.AddService(builder.Environment.ApplicationName))
     .WithTracing(tracing => tracing
@@ -61,11 +65,17 @@ builder.Services.AddOpenTelemetry()
         .AddRuntimeInstrumentation())
     .UseOtlpExporter();
 
+// Configure OpenTelemetry logging to include scopes and formatted messages, which can provide more context and readability in the logs
 builder.Logging.AddOpenTelemetry(options =>
 {
     options.IncludeScopes = true;
     options.IncludeFormattedMessage = true;
 });
+
+// Register the sort mapping provider as a transient service to provide sort mappings for different DTO and entity combinations
+builder.Services.AddTransient<SortMappingProvider>();
+// Register the sort mapping definition for HabitDto and Habit to enable sorting based on the defined mappings
+builder.Services.AddSingleton<ISortMappingDefinition, SortMappingDefinition<HabitDto, Habit>>(_ => HabitMappings.SortMapping);
 
 WebApplication app = builder.Build();
 

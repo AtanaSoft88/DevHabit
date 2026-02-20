@@ -1,8 +1,9 @@
-﻿using System.Linq.Expressions;
+﻿using System.Linq.Dynamic.Core;
 using DevHabit.Api.Database;
 using DevHabit.Api.DTOs.Habits;
 using DevHabit.Api.DTOs.Tags;
 using DevHabit.Api.Entities;
+using DevHabit.Api.Services.Sorting;
 using FluentValidation;
 using FluentValidation.Results;
 using Microsoft.AspNetCore.JsonPatch;
@@ -18,10 +19,24 @@ namespace DevHabit.Api.Controllers;
 public sealed class HabitsController(ApplicationDbContext dbContext) : ControllerBase
 {
     [HttpGet()]
-    public async Task<ActionResult<HabitsCollectionDto>> GetHabits([FromQuery] HabitsQueryParameters query)
+    public async Task<ActionResult<HabitsCollectionDto>> GetHabits(
+        [FromQuery] HabitsQueryParameters query,
+        SortMappingProvider sortMappingProvider
+        )
     {
+        // Validate the 'Sort' query parameter using the SortMappingProvider to ensure it corresponds to valid sorting options for HabitDto and Habit entities.
+        if (!sortMappingProvider.ValidateMappings<HabitDto, Habit>(query.Sort))
+        {
+            return Problem(
+                statusCode: StatusCodes.Status400BadRequest,
+                detail: $"The provided sort parameter isn't valid: '{query.Sort}'");
+                
+        }
+
         // Searching and filtering from Query parameters taken from 'HabitsQueryParameters' class
         query.Search ??= query.Search?.Trim().ToLower();
+
+        SortMapping[] sortMappings = sortMappingProvider.GetMappings<HabitDto, Habit>();
 
         List<HabitDto> habits = await dbContext
             .Habits
@@ -29,10 +44,12 @@ public sealed class HabitsController(ApplicationDbContext dbContext) : Controlle
             .Where(h => query.Search == null ||
                         h.Name.ToLower().Contains(query.Search) ||
                         h.Description != null && h.Description.ToLower().Contains(query.Search))
-            //Type parameter matched with Habit.Type when available
+            // Type parameter matched with Habit.Type when available
             .Where(h => query.Type == null || h.Type == query.Type)
-            //Status parameter matched with Habit.Status when available
+            // Status parameter matched with Habit.Status when available
             .Where(h => query.Status == null || h.Status == query.Status)
+            // Sorting applied based on Sort parameter and sort mappings provided by SortMappingProvider
+            .ApplySort(query.Sort, sortMappings)  
             .Select(HabitQueries.ProjectToDto())
             .ToListAsync();
 
