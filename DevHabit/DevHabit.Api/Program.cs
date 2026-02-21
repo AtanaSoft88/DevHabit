@@ -82,7 +82,7 @@ WebApplication app = builder.Build();
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
-
+    // Apply any pending database migrations at startup to ensure the database schema is up to date with the application's data model, which can help prevent issues related to schema mismatches during development.
     await app.ApplyMigrations();
 }
 
