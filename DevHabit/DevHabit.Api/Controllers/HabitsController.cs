@@ -53,6 +53,7 @@ public sealed class HabitsController(ApplicationDbContext dbContext) : Controlle
             .ApplySort(query.Sort, sortMappings)
             .Select(HabitQueries.ProjectToDto());
 
+        //Pagination applied to the query using the PaginationResult class, which takes care of calculating total count, total pages, and slicing the data based on Page and PageSize parameters.
         PaginationResult<HabitDto> paginationResult = await PaginationResult<HabitDto>.CreateAsync(habitsQuery, query.Page, query.PageSize);
 
         return Ok(paginationResult);
