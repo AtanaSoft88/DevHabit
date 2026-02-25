@@ -3,10 +3,12 @@ using DevHabit.Api.DTOs.Habits;
 using DevHabit.Api.Entities;
 using DevHabit.Api.Extensions;
 using DevHabit.Api.Middleware;
+using DevHabit.Api.Services;
 using DevHabit.Api.Services.Sorting;
 using FluentValidation;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Migrations;
+using Newtonsoft.Json.Serialization;
 using Npgsql;
 using OpenTelemetry;
 using OpenTelemetry.Metrics;
@@ -16,11 +18,12 @@ using OpenTelemetry.Trace;
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddControllers(options =>
-{    
+{
     options.ReturnHttpNotAcceptable = true; //Added to return 406 when the requested format is not supported    
 
 })
-.AddNewtonsoftJson() //Added NewtonsoftJson support
+// Configure Newtonsoft.Json to use camel case property names in JSON responses, which is a common convention in JSON APIs and can improve readability for clients consuming the API.
+.AddNewtonsoftJson(options => options.SerializerSettings.ContractResolver = new CamelCasePropertyNamesContractResolver())
 .AddXmlSerializerFormatters(); //Added XmlSerializerFormatters() to support XML format
 
 // Add FluentValidation support from the assembly containing the Program class
@@ -76,6 +79,8 @@ builder.Logging.AddOpenTelemetry(options =>
 builder.Services.AddTransient<SortMappingProvider>();
 // Register the sort mapping definition for HabitDto and Habit to enable sorting based on the defined mappings
 builder.Services.AddSingleton<ISortMappingDefinition, SortMappingDefinition<HabitDto, Habit>>(_ => HabitMappings.SortMapping);
+// Register the data shaping service as a transient service to enable shaping of data based on specified fields in the API responses
+builder.Services.AddTransient<DataShapingService>();
 
 WebApplication app = builder.Build();
 
