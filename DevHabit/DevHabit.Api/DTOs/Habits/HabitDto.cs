@@ -1,9 +1,10 @@
-﻿using DevHabit.Api.Entities;
+﻿using DevHabit.Api.DTOs.Common;
+using DevHabit.Api.Entities;
 using Newtonsoft.Json;
 
 namespace DevHabit.Api.DTOs.Habits;
 
-public record HabitDto
+public record HabitDto : ILinksResponse
 {
     public required string Id { get; init; }
     public required string Name { get; init; }
@@ -18,6 +19,7 @@ public record HabitDto
     public required DateTime CreatedAtUtc { get; init; }
     public DateTime? UpdatedAtUtc { get; init; }
     public DateTime? LastCompletedAtUtc { get; init; }
+    public List<LinkDto> Links { get; set; }
 }
 
 public sealed record FrequencyDto

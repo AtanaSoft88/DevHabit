@@ -76,11 +76,20 @@ public sealed class HabitsController(ApplicationDbContext dbContext, LinkService
         // Data shaping applied to the resulting list of HabitDto objects based on the Fields query parameter, allowing clients to specify which fields they want in the response.
         var paginationResult = new PaginationResult<ExpandoObject>
         {
-            Items = dataShapingService.ShapeCollectionData(habits, query.Fields),
+            Items = dataShapingService.ShapeCollectionData(
+                habits,
+                query.Fields,
+                h => CreateLinksForHabit(h.Id, query.Fields)),
             Page = query.Page,
             PageSize = query.PageSize,
-            TotalCount = totalCount
+            TotalCount = totalCount,            
         };
+
+        paginationResult.Links = CreateLinksForHabits(
+            query,
+            paginationResult.HasNextPage,
+            paginationResult.HasPreviousPage
+            );
 
         return Ok(paginationResult);
     }
@@ -111,7 +120,7 @@ public sealed class HabitsController(ApplicationDbContext dbContext, LinkService
 
         ExpandoObject shapedhabitDto = dataShapingService.ShapeData(habitWithTagsDto, fields);
 
-        LinkDto[] links = CreateLinksForHabit(id, fields);
+        List<LinkDto> links = CreateLinksForHabit(id, fields);
 
         shapedhabitDto.TryAdd("links", links);
 
@@ -132,6 +141,8 @@ public sealed class HabitsController(ApplicationDbContext dbContext, LinkService
         await dbContext.SaveChangesAsync();
 
         HabitDto habitDto = habit.ToDto();
+
+        habitDto.Links = CreateLinksForHabit(habit.Id, null);
 
         return CreatedAtAction(nameof(GetHabitById), new { id = habitDto.Id }, habitDto);
     }
@@ -165,6 +176,9 @@ public sealed class HabitsController(ApplicationDbContext dbContext, LinkService
 
         HabitDto habitDto = habit.ToDto();
 
+        // Create HATEOAS links for the habit resource and assign them to the Links property of the HabitDto before applying the JSON Patch document, ensuring that the links are included in the response after the patch is applied.
+        habitDto.Links = CreateLinksForHabit(id, null);
+
         patchDocument.ApplyTo(habitDto, ModelState);
 
         if (!TryValidateModel(habitDto))
@@ -195,15 +209,73 @@ public sealed class HabitsController(ApplicationDbContext dbContext, LinkService
         return NoContent();
     }
 
-    //Helper method to create HATEOAS links for a habit resource, including links for retrieving, updating, partially updating, and deleting the habit based on its ID and optional fields for data shaping.
-    private LinkDto[] CreateLinksForHabit(string id, string? fields)
+    //Helper method to create HATEOAS links for a collection of habits, including links for retrieving the current page, creating a new habit, and navigating to the next and previous pages based on the presence of next and previous pages in the pagination result.
+    private List<LinkDto> CreateLinksForHabits(
+        HabitsQueryParameters parameters,
+        bool hasNextPage,
+        bool hasPreviousPage)
     {
-        LinkDto[] links =
+        List<LinkDto> links =
+        [
+            linkService.Create(nameof(GetHabits), "self", HttpMethods.Get, new 
+            {
+                page = parameters.Page,
+                pageSize = parameters.PageSize, 
+                fields = parameters.Fields,
+                q = parameters.Search,
+                sort = parameters.Sort,
+                type = parameters.Type, 
+                status = parameters.Status
+            }),      
+            linkService.Create(nameof(CreateHabit), "create", HttpMethods.Post)
+        ];
+
+        if (hasNextPage)
+        {
+            links.Add(linkService.Create(nameof(GetHabits), "next-page", HttpMethods.Get, new
+            {
+                page = parameters.Page + 1,
+                pageSize = parameters.PageSize,
+                fields = parameters.Fields,
+                q = parameters.Search,
+                sort = parameters.Sort,
+                type = parameters.Type,
+                status = parameters.Status
+            }));
+        }
+
+        if (hasPreviousPage)
+        {
+            links.Add(linkService.Create(nameof(GetHabits), "previous-page", HttpMethods.Get, new
+            {
+                page = parameters.Page - 1,
+                pageSize = parameters.PageSize,
+                fields = parameters.Fields,
+                q = parameters.Search,
+                sort = parameters.Sort,
+                type = parameters.Type,
+                status = parameters.Status
+            }));
+        }
+
+        return links;
+    }
+
+    //Helper method to create HATEOAS links for a habit resource, including links for retrieving, updating, partially updating, and deleting the habit based on its ID and optional fields for data shaping.
+    private List<LinkDto> CreateLinksForHabit(string id, string? fields)
+    {
+        List<LinkDto> links =
         [
             linkService.Create(nameof(GetHabitById), "self", HttpMethods.Get, new { id, fields }),
             linkService.Create(nameof(UpdateHabit), "update", HttpMethods.Put, new { id }),
             linkService.Create(nameof(PatchHabit), "partial-update", HttpMethods.Patch, new { id }),
-            linkService.Create(nameof(DeleteHabit), "delete", HttpMethods.Delete, new { id })
+            linkService.Create(nameof(DeleteHabit), "delete", HttpMethods.Delete, new { id }),
+            linkService.Create(
+                nameof(HabitTagsController.UpsertHabitTags),
+                "upsert-tags",
+                HttpMethods.Put,
+                new {habitId = id },
+                HabitTagsController.Name)
         ];
         return links;
     }
