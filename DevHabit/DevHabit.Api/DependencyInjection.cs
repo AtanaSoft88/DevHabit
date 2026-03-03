@@ -104,7 +104,10 @@ public static class DependencyInjection
         builder.Services.AddSingleton<ISortMappingDefinition, SortMappingDefinition<HabitDto, Habit>>(_ => HabitMappings.SortMapping);
         // Register the data shaping service as a transient service to enable shaping of data based on specified fields in the API responses
         builder.Services.AddTransient<DataShapingService>();
-
+        // Register the HTTP context accessor as a singleton service to allow access to the current HTTP context, which can be useful for generating links and accessing request-specific information in services
+        builder.Services.AddHttpContextAccessor();
+        // Register the link service as a transient service to generate HATEOAS links for API responses, enhancing discoverability and navigation of the API
+        builder.Services.AddTransient<LinkService>();
         return builder;
 
     }

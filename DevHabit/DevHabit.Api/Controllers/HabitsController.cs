@@ -20,7 +20,7 @@ namespace DevHabit.Api.Controllers;
 
 [ApiController]
 [Route("habits")]
-public sealed class HabitsController(ApplicationDbContext dbContext) : ControllerBase
+public sealed class HabitsController(ApplicationDbContext dbContext, LinkService linkService) : ControllerBase
 {
     [HttpGet()]
     public async Task<IActionResult> GetHabits(
@@ -35,7 +35,7 @@ public sealed class HabitsController(ApplicationDbContext dbContext) : Controlle
             return Problem(
                 statusCode: StatusCodes.Status400BadRequest,
                 detail: $"The provided sort parameter isn't valid: '{query.Sort}'");
-                
+
         }
 
         // Validate the 'Fields' query parameter using the DataShapingService to ensure it corresponds to valid fields for data shaping of HabitDto objects.
@@ -111,22 +111,26 @@ public sealed class HabitsController(ApplicationDbContext dbContext) : Controlle
 
         ExpandoObject shapedhabitDto = dataShapingService.ShapeData(habitWithTagsDto, fields);
 
+        LinkDto[] links = CreateLinksForHabit(id, fields);
+
+        shapedhabitDto.TryAdd("links", links);
+
         return Ok(shapedhabitDto);
     }
 
     [HttpPost]
     public async Task<ActionResult<HabitDto>> CreateHabit(CreateHabitDto createHabitDto,
                                                           IValidator<CreateHabitDto> validator)
-    {   
+    {
         // Validation exception handler responsible for converting specific validation exception into Problem details responce.
         await validator.ValidateAndThrowAsync(createHabitDto);
 
         Habit habit = createHabitDto.ToEntity();
 
         dbContext.Habits.Add(habit);
-        
+
         await dbContext.SaveChangesAsync();
-        
+
         HabitDto habitDto = habit.ToDto();
 
         return CreatedAtAction(nameof(GetHabitById), new { id = habitDto.Id }, habitDto);
@@ -147,7 +151,7 @@ public sealed class HabitsController(ApplicationDbContext dbContext) : Controlle
         await dbContext.SaveChangesAsync();
 
         return NoContent();
-    }    
+    }
 
     [HttpPatch("{id}")] //Using library 'Microsoft.AspNetCore.JsonPatch' for JSON Patch support
     public async Task<ActionResult> PatchHabit(string id, JsonPatchDocument<HabitDto> patchDocument)
@@ -189,5 +193,18 @@ public sealed class HabitsController(ApplicationDbContext dbContext) : Controlle
         dbContext.Habits.Remove(habit);
         await dbContext.SaveChangesAsync();
         return NoContent();
+    }
+
+    //Helper method to create HATEOAS links for a habit resource, including links for retrieving, updating, partially updating, and deleting the habit based on its ID and optional fields for data shaping.
+    private LinkDto[] CreateLinksForHabit(string id, string? fields)
+    {
+        LinkDto[] links =
+        [
+            linkService.Create(nameof(GetHabitById), "self", HttpMethods.Get, new { id, fields }),
+            linkService.Create(nameof(UpdateHabit), "update", HttpMethods.Put, new { id }),
+            linkService.Create(nameof(PatchHabit), "partial-update", HttpMethods.Patch, new { id }),
+            linkService.Create(nameof(DeleteHabit), "delete", HttpMethods.Delete, new { id })
+        ];
+        return links;
     }
 }
