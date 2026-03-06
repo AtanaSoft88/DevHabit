@@ -5,6 +5,8 @@ using DevHabit.Api.Middleware;
 using DevHabit.Api.Services;
 using DevHabit.Api.Services.Sorting;
 using FluentValidation;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.Formatters;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Migrations;
 using Newtonsoft.Json.Serialization;
@@ -28,6 +30,15 @@ public static class DependencyInjection
         // Configure Newtonsoft.Json to use camel case property names in JSON responses
         .AddNewtonsoftJson(options => options.SerializerSettings.ContractResolver = new CamelCasePropertyNamesContractResolver())
         .AddXmlSerializerFormatters(); //Added XmlSerializerFormatters() to support XML format
+
+        // Configure the output formatters to support the custom HATEOAS JSON media type, allowing clients to request this format for API responses that include HATEOAS links
+        builder.Services.Configure<MvcOptions>(opt =>
+        {
+            NewtonsoftJsonOutputFormatter formatter = opt.OutputFormatters
+                .OfType<NewtonsoftJsonOutputFormatter>()
+                .First();
+                  formatter.SupportedMediaTypes.Add(CustomMediaTypeNames.Application.HateoasJson);
+        });
 
         builder.Services.AddOpenApi();
 
@@ -65,10 +76,10 @@ public static class DependencyInjection
                npgsql => npgsql.MigrationsHistoryTable(HistoryRepository.DefaultTableName, Schemas.Application))
             .UseSnakeCaseNamingConvention());
 
-        return builder; 
+        return builder;
     }
 
-    public static WebApplicationBuilder AddObservability(this WebApplicationBuilder builder) 
+    public static WebApplicationBuilder AddObservability(this WebApplicationBuilder builder)
     {
         // Configure OpenTelemetry for tracing and metrics collection, including instrumentation for HTTP client, ASP.NET Core, and Npgsql, and set up the OTLP exporter to send telemetry data to a compatible backend
         builder.Services.AddOpenTelemetry()
@@ -93,7 +104,7 @@ public static class DependencyInjection
         return builder;
     }
 
-    public static WebApplicationBuilder AddApplicationServices(this WebApplicationBuilder builder) 
+    public static WebApplicationBuilder AddApplicationServices(this WebApplicationBuilder builder)
     {
         // Add FluentValidation support from the assembly containing the Program class
         builder.Services.AddValidatorsFromAssemblyContaining<Program>();
