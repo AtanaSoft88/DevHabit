@@ -1,4 +1,5 @@
-﻿using DevHabit.Api.Database;
+﻿using Asp.Versioning;
+using DevHabit.Api.Database;
 using DevHabit.Api.DTOs.Habits;
 using DevHabit.Api.Entities;
 using DevHabit.Api.Middleware;
@@ -20,25 +21,46 @@ namespace DevHabit.Api;
 
 public static class DependencyInjection
 {
-    public static WebApplicationBuilder AddControllers(this WebApplicationBuilder builder)
+    public static WebApplicationBuilder AddApiServices(this WebApplicationBuilder builder)
     {
         builder.Services.AddControllers(options =>
         {
-            options.ReturnHttpNotAcceptable = true; //Added to return 406 when the requested format is not supported    
-
+            options.ReturnHttpNotAcceptable = true; //Added to return 406 when the requested format is not supported
         })
-        // Configure Newtonsoft.Json to use camel case property names in JSON responses
-        .AddNewtonsoftJson(options => options.SerializerSettings.ContractResolver = new CamelCasePropertyNamesContractResolver())
-        .AddXmlSerializerFormatters(); //Added XmlSerializerFormatters() to support XML format
+            // Configure Newtonsoft.Json to use camel case property names in JSON responses
+            .AddNewtonsoftJson(options => options.SerializerSettings.ContractResolver =
+                new CamelCasePropertyNamesContractResolver())
+            .AddXmlSerializerFormatters(); //Added XmlSerializerFormatters() to support XML format
 
         // Configure the output formatters to support the custom HATEOAS JSON media type, allowing clients to request this format for API responses that include HATEOAS links
-        builder.Services.Configure<MvcOptions>(opt =>
+        builder.Services.Configure<MvcOptions>(options =>
         {
-            NewtonsoftJsonOutputFormatter formatter = opt.OutputFormatters
+            NewtonsoftJsonOutputFormatter formatter = options.OutputFormatters
                 .OfType<NewtonsoftJsonOutputFormatter>()
                 .First();
-                  formatter.SupportedMediaTypes.Add(CustomMediaTypeNames.Application.HateoasJson);
+
+            formatter.SupportedMediaTypes.Add(CustomMediaTypeNames.Application.JsonV1);
+            formatter.SupportedMediaTypes.Add(CustomMediaTypeNames.Application.JsonV2);
+            formatter.SupportedMediaTypes.Add(CustomMediaTypeNames.Application.HateoasJson);
+            formatter.SupportedMediaTypes.Add(CustomMediaTypeNames.Application.HateoasJsonV1);
+            formatter.SupportedMediaTypes.Add(CustomMediaTypeNames.Application.HateoasJsonV2);
         });
+
+        builder.Services
+            .AddApiVersioning(options =>
+            {
+                options.DefaultApiVersion = new ApiVersion(1.0);
+                options.AssumeDefaultVersionWhenUnspecified = true;
+                options.ReportApiVersions = true;
+                options.ApiVersionSelector = new DefaultApiVersionSelector(options);
+
+                options.ApiVersionReader = ApiVersionReader.Combine(
+                    new MediaTypeApiVersionReader(),
+                    new MediaTypeApiVersionReaderBuilder()
+                        .Template("application/vnd.dev-habit.hateoas.{version}+json")
+                        .Build());
+            })
+            .AddMvc();
 
         builder.Services.AddOpenApi();
 

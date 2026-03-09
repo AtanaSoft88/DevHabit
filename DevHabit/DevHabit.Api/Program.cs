@@ -3,7 +3,7 @@ using DevHabit.Api.Extensions;
 
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 
-builder.AddControllers()
+builder.AddApiServices()
        .AddErrorHandling()
        .AddDatabase()
        .AddObservability()

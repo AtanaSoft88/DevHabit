@@ -1,5 +1,7 @@
 ﻿using System.Dynamic;
 using System.Linq.Dynamic.Core;
+using System.Net.Mime;
+using Asp.Versioning;
 using DevHabit.Api.Database;
 using DevHabit.Api.DTOs.Common;
 using DevHabit.Api.DTOs.Habits;
@@ -20,9 +22,17 @@ namespace DevHabit.Api.Controllers;
 
 [ApiController]
 [Route("habits")]
+[ApiVersion(1.0)]
+[Produces(
+    MediaTypeNames.Application.Json,
+    CustomMediaTypeNames.Application.JsonV1,
+    CustomMediaTypeNames.Application.JsonV2,
+    CustomMediaTypeNames.Application.HateoasJson,
+    CustomMediaTypeNames.Application.HateoasJsonV1,
+    CustomMediaTypeNames.Application.HateoasJsonV2)]
 public sealed class HabitsController(ApplicationDbContext dbContext, LinkService linkService) : ControllerBase
 {
-    [HttpGet()]
+    [HttpGet()]    
     public async Task<IActionResult> GetHabits(
         [FromQuery] HabitsQueryParameters query,
         SortMappingProvider sortMappingProvider,
@@ -73,7 +83,7 @@ public sealed class HabitsController(ApplicationDbContext dbContext, LinkService
             .Take(query.PageSize)
             .ToListAsync();
 
-        bool includeLinks = query.Accept == CustomMediaTypeNames.Application.HateoasJson;
+        //bool includeLinks = query.Accept == CustomMediaTypeNames.Application.HateoasJson;
 
         // Data shaping applied to the resulting list of HabitDto objects based on the Fields query parameter, allowing clients to specify which fields they want in the response.
         var paginationResult = new PaginationResult<ExpandoObject>
@@ -81,13 +91,13 @@ public sealed class HabitsController(ApplicationDbContext dbContext, LinkService
             Items = dataShapingService.ShapeCollectionData(
                 habits,
                 query.Fields,
-                includeLinks ? h => CreateLinksForHabit(h.Id, query.Fields) : null),
+                query.IncludeLinks ? h => CreateLinksForHabit(h.Id, query.Fields) : null),
             Page = query.Page,
             PageSize = query.PageSize,
             TotalCount = totalCount,            
         };
 
-        if (includeLinks)
+        if (query.IncludeLinks)
         {
             paginationResult.Links = CreateLinksForHabits(
             query,
@@ -100,19 +110,18 @@ public sealed class HabitsController(ApplicationDbContext dbContext, LinkService
     }
 
     [HttpGet("{id}")]
-    public async Task<IActionResult> GetHabitById(
+    [MapToApiVersion(1.0)]
+    public async Task<IActionResult> GetHabit(
         string id,
-        string? fields,
-        [FromHeader(Name ="Accept")]
-        string? accept,
+        [FromQuery] HabitQueryParameters query,
         DataShapingService dataShapingService)
     {
 
-        if (!dataShapingService.Validate<HabitWithTagsDto>(fields))
+        if (!dataShapingService.Validate<HabitWithTagsDto>(query.Fields))
         {
             return Problem(
                 statusCode: StatusCodes.Status400BadRequest,
-                detail: $"The provided data shaping fields aren't valid: '{fields}'");
+                detail: $"The provided data shaping fields aren't valid: '{query.Fields}'");
         }
 
         HabitWithTagsDto? habitWithTagsDto = await dbContext.Habits
@@ -125,16 +134,53 @@ public sealed class HabitsController(ApplicationDbContext dbContext, LinkService
             return NotFound();
         }
 
-        ExpandoObject shapedhabitDto = dataShapingService.ShapeData(habitWithTagsDto, fields);
+        ExpandoObject shapedHabitDto = dataShapingService.ShapeData(habitWithTagsDto, query.Fields);
 
-        if (accept == CustomMediaTypeNames.Application.HateoasJson)
+        if (query.IncludeLinks)
         {
-            List<LinkDto> links = CreateLinksForHabit(id, fields);
+            List<LinkDto> links = CreateLinksForHabit(id, query.Fields);
 
-            shapedhabitDto.TryAdd("links", links);
-        }        
+            shapedHabitDto.TryAdd("links", links);
+        }
 
-        return Ok(shapedhabitDto);
+        return Ok(shapedHabitDto);
+    }
+
+    [HttpGet("{id}")]
+    [ApiVersion(2.0)]
+    public async Task<IActionResult> GetHabitV2(
+        string id,
+        [FromQuery] HabitQueryParameters query,
+        DataShapingService dataShapingService)
+    {
+        if (!dataShapingService.Validate<HabitWithTagsDtoV2>(query.Fields))
+        {
+            return Problem(
+                statusCode: StatusCodes.Status400BadRequest,
+                detail: $"The provided data shaping fields aren't valid: '{query.Fields}'");
+        }
+
+        HabitWithTagsDtoV2? habit = await dbContext
+            .Habits
+            .Where(h => h.Id == id)
+            .Select(HabitQueries.ProjectToHabitWithTagsDtoV2())
+            .FirstOrDefaultAsync();
+
+        if (habit is null)
+        {
+            return NotFound();
+        }
+
+        ExpandoObject shapedHabitDto = dataShapingService.ShapeData(habit, query.Fields);
+
+        if (query.IncludeLinks)
+        {
+            List<LinkDto> links = CreateLinksForHabit(id, query.Fields);
+
+            shapedHabitDto.TryAdd("links", links);
+        }
+
+        return Ok(shapedHabitDto);
     }
 
     [HttpPost]
@@ -154,7 +200,7 @@ public sealed class HabitsController(ApplicationDbContext dbContext, LinkService
 
         habitDto.Links = CreateLinksForHabit(habit.Id, null);
 
-        return CreatedAtAction(nameof(GetHabitById), new { id = habitDto.Id }, habitDto);
+        return CreatedAtAction(nameof(GetHabit), new { id = habitDto.Id }, habitDto);
     }
 
     [HttpPut("{id}")]
@@ -276,7 +322,7 @@ public sealed class HabitsController(ApplicationDbContext dbContext, LinkService
     {
         List<LinkDto> links =
         [
-            linkService.Create(nameof(GetHabitById), "self", HttpMethods.Get, new { id, fields }),
+            linkService.Create(nameof(GetHabit), "self", HttpMethods.Get, new { id, fields }),
             linkService.Create(nameof(UpdateHabit), "update", HttpMethods.Put, new { id }),
             linkService.Create(nameof(PatchHabit), "partial-update", HttpMethods.Patch, new { id }),
             linkService.Create(nameof(DeleteHabit), "delete", HttpMethods.Delete, new { id }),
