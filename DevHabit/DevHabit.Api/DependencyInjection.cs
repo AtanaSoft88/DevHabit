@@ -6,6 +6,7 @@ using DevHabit.Api.Middleware;
 using DevHabit.Api.Services;
 using DevHabit.Api.Services.Sorting;
 using FluentValidation;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Formatters;
 using Microsoft.EntityFrameworkCore;
@@ -90,12 +91,22 @@ public static class DependencyInjection
 
     public static WebApplicationBuilder AddDatabase(this WebApplicationBuilder builder)
     {
+        // Configure the application database context to use PostgreSQL with the connection string from the configuration, and specify the migrations history table to be in the application's schema for better organization of migration history
         builder.Services.AddDbContext<ApplicationDbContext>(opt =>
 
          opt
             .UseNpgsql(
                builder.Configuration.GetConnectionString("PostgresDatabase"),
                npgsql => npgsql.MigrationsHistoryTable(HistoryRepository.DefaultTableName, Schemas.Application))
+            .UseSnakeCaseNamingConvention());
+
+        // Configure the identity database context to use PostgreSQL with the same connection string and specify a different migrations history table and schema for identity-related migrations, ensuring that the identity data is stored separately from the application data while still using the same database
+        builder.Services.AddDbContext<ApplicationIdentityDbContext>(opt =>
+
+         opt
+            .UseNpgsql(
+               builder.Configuration.GetConnectionString("PostgresDatabase"),
+               npgsql => npgsql.MigrationsHistoryTable(HistoryRepository.DefaultTableName, Schemas.Identity))
             .UseSnakeCaseNamingConvention());
 
         return builder;
@@ -143,5 +154,14 @@ public static class DependencyInjection
         builder.Services.AddTransient<LinkService>();
         return builder;
 
+    }
+
+    public static WebApplicationBuilder AddAuthenticationServices(this WebApplicationBuilder builder) 
+    {
+        builder.Services
+            .AddIdentity<IdentityUser, IdentityRole>()
+            .AddEntityFrameworkStores<ApplicationIdentityDbContext>();
+
+        return builder;
     }
 }
