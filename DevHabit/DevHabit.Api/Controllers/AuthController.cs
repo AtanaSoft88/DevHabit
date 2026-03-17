@@ -2,6 +2,7 @@
 using DevHabit.Api.DTOs.Auth;
 using DevHabit.Api.DTOs.Users;
 using DevHabit.Api.Entities;
+using DevHabit.Api.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
@@ -15,13 +16,14 @@ namespace DevHabit.Api.Controllers;
 [ApiController]
 [Route("auth")]
 [AllowAnonymous]
-public sealed class AuthController(        
+public sealed class AuthController(
     UserManager<IdentityUser> userManager,
     ApplicationIdentityDbContext IdentityDbContext,
-    ApplicationDbContext applicationDbContext) : ControllerBase
+    ApplicationDbContext applicationDbContext,
+    TokenProvider tokenProvider) : ControllerBase
 {
     [HttpPost("register")]
-    public async Task<IActionResult> Register(RegisterUserDto registerUserDto) 
+    public async Task<ActionResult<AccessTokensDto>> Register(RegisterUserDto registerUserDto)
     {
         // Start a transaction on the IdentityDbContext and share it with the ApplicationDbContext
         using IDbContextTransaction transaction = await IdentityDbContext.Database.BeginTransactionAsync();
@@ -54,7 +56,7 @@ public sealed class AuthController(
                 detail: "Unable to register user, please try again",
                 statusCode: StatusCodes.Status400BadRequest,
                 extensions: extensions);
-                
+
         }
 
         // Map from registerUserDto to User entity in the ApplicationDbContext
@@ -70,7 +72,27 @@ public sealed class AuthController(
         // If we reach this point, it means both the IdentityUser and the User entity were created successfully, so we can commit the transaction
         await transaction.CommitAsync();
 
-        // Return the Id of the created User entity as the response to the client for now, we can change this later to return a JWT token 
-        return Ok(user.Id);
+        // Generate access tokens for the newly registered user
+        var tokenRequest = new TokenRequest(identityUser.Id, identityUser.Email);
+
+        AccessTokensDto accessTokens = tokenProvider.Create(tokenRequest);
+
+        return Ok(accessTokens);
+    }
+
+    [HttpPost("login")]
+    public async Task<ActionResult<AccessTokensDto>> Login(LoginUserDto loginUserDto)
+    {
+        IdentityUser? identityUser = await userManager.FindByEmailAsync(loginUserDto.Email);
+
+        if (identityUser is null || !await userManager.CheckPasswordAsync(identityUser, loginUserDto.Password))
+        {
+            return Unauthorized();
+        }
+
+        var tokenRequest = new TokenRequest(identityUser.Id, identityUser.Email!);
+        AccessTokensDto accessTokens = tokenProvider.Create(tokenRequest);
+
+        return Ok(accessTokens);
     }
 }

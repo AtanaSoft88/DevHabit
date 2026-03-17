@@ -24,6 +24,10 @@ app.UseHttpsRedirection();
 // Use the global exception handler middleware to catch unhandled exceptions and return ProblemDetails responses
 app.UseExceptionHandler();
 
+app.UseAuthentication();
+
+app.UseAuthorization();
+
 app.MapControllers();
 
 await app.RunAsync();

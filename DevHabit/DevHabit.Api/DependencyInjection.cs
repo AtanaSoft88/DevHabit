@@ -1,16 +1,20 @@
-﻿using Asp.Versioning;
+﻿using System.Text;
+using Asp.Versioning;
 using DevHabit.Api.Database;
 using DevHabit.Api.DTOs.Habits;
 using DevHabit.Api.Entities;
 using DevHabit.Api.Middleware;
 using DevHabit.Api.Services;
 using DevHabit.Api.Services.Sorting;
+using DevHabit.Api.Settings;
 using FluentValidation;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Formatters;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Migrations;
+using Microsoft.IdentityModel.Tokens;
 using Newtonsoft.Json.Serialization;
 using Npgsql;
 using OpenTelemetry;
@@ -152,15 +156,42 @@ public static class DependencyInjection
         builder.Services.AddHttpContextAccessor();
         // Register the link service as a transient service to generate HATEOAS links for API responses, enhancing discoverability and navigation of the API
         builder.Services.AddTransient<LinkService>();
-        return builder;
+        // Register the token provider as a transient service to handle the generation of JWT tokens for authentication purposes, allowing the application to issue tokens based on the configured JWT settings
+        builder.Services.AddTransient<TokenProvider>();
 
+        return builder;
     }
 
-    public static WebApplicationBuilder AddAuthenticationServices(this WebApplicationBuilder builder) 
+    public static WebApplicationBuilder AddAuthenticationServices(this WebApplicationBuilder builder)
     {
         builder.Services
             .AddIdentity<IdentityUser, IdentityRole>()
             .AddEntityFrameworkStores<ApplicationIdentityDbContext>();
+
+        // Configure the JwtAuthOptions by binding it to the "Jwt" section of the configuration, allowing the application to easily access JWT-related settings such as issuer, audience, key, and expiration times from the configuration file
+        //This IOptions pattern allows us to inject IOptions<JwtAuthOptions> into our services and controllers to access the JWT settings in a strongly-typed manner
+        builder.Services.Configure<JwtAuthOptions>(builder.Configuration.GetSection("Jwt"));
+
+        // Retrieve the JwtAuthOptions from the configuration to use its values for configuring JWT Bearer authentication, ensuring that the token validation parameters are set according to the application's JWT settings
+        JwtAuthOptions jwtAuthOptions = builder.Configuration.GetSection("Jwt").Get<JwtAuthOptions>()!;
+
+        // Configure JWT Bearer authentication with the specified token validation parameters, including the valid issuer, audience, and signing key based on the values from the JwtAuthOptions, enabling the application to authenticate and validate JWT tokens for secure access to protected resources
+        builder.Services.AddAuthentication(options =>
+                        {
+                            options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+                            options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+                        })
+                        .AddJwtBearer(opt =>
+                        {
+                            opt.TokenValidationParameters = new TokenValidationParameters
+                            {
+                                ValidIssuer = jwtAuthOptions.Issuer,
+                                ValidAudience = jwtAuthOptions.Audience,
+                                IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtAuthOptions.Key)),
+                            };
+                        });
+
+        builder.Services.AddAuthorization();
 
         return builder;
     }
