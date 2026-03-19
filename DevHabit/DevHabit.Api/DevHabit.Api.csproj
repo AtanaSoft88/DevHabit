@@ -31,4 +31,8 @@
     <PackageReference Include="System.Linq.Dynamic.Core" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Folder Include="Migrations\Identity\" />
+  </ItemGroup>
+
 </Project>
