@@ -61,11 +61,12 @@ internal static class HabitMappings
             LastCompletedAtUtc = habit.LastCompletedAtUtc
         };
     }
-    public static Habit ToEntity(this CreateHabitDto dto)
+    public static Habit ToEntity(this CreateHabitDto dto, string userId)
     {
         Habit habit = new()
         {
             Id = $"h_{Guid.CreateVersion7()}",
+            UserId = userId,
             Name = dto.Name,
             Description = dto.Description,
             Type = dto.Type,

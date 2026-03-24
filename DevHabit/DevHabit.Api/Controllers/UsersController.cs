@@ -1,21 +1,63 @@
+using DevHabit.Api.Constants;
 using DevHabit.Api.Database;
 using DevHabit.Api.DTOs.Users;
+using DevHabit.Api.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using System.Security.Claims;
 
 namespace DevHabit.Api.Controllers;
 
 [ApiController]
 [Route("users")]
-[Authorize]
-internal sealed class UsersController(ApplicationDbContext dbContext) : ControllerBase
+[Authorize(Roles = $"{Roles.Member}")]
+// Authorize both roles Admin and Member to get access to the resources
+//[Authorize(Roles = $"{Roles.Admin},{Roles.Member}")]
+public sealed class UsersController(ApplicationDbContext dbContext, UserContext userContext) : ControllerBase
 {
     [HttpGet("{id}")]
+    [Authorize(Roles = $"{Roles.Admin}")]
     public async Task<ActionResult<UserDto>> GetUserById(string id)
     {
+        string? userId = await userContext.GetUserIdAsync();
+
+        if (string.IsNullOrWhiteSpace(userId))
+        {
+            return Unauthorized();
+        }
+
+        if (userId != id)
+        {
+            return Forbid();
+        }
+
         UserDto? user = await dbContext.Users
             .Where(u => u.Id == id)
+            .Select(UserQueries.ProjectToDto())
+            .FirstOrDefaultAsync();
+
+        if (user is null)
+        {
+            return NotFound();
+        }
+
+        return Ok(user);
+    }
+
+    [HttpGet("me")]
+    public async Task<ActionResult<UserDto>> GetCurrentUser()
+    {
+        string? userId = await userContext.GetUserIdAsync();
+
+        if (string.IsNullOrWhiteSpace(userId))
+        {
+            return Unauthorized();
+        }
+
+
+        UserDto? user = await dbContext.Users
+            .Where(u => u.Id == userId)
             .Select(UserQueries.ProjectToDto())
             .FirstOrDefaultAsync();
 

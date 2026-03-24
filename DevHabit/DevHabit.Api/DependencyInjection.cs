@@ -159,6 +159,12 @@ public static class DependencyInjection
         // Register the token provider as a transient service to handle the generation of JWT tokens for authentication purposes, allowing the application to issue tokens based on the configured JWT settings
         builder.Services.AddTransient<TokenProvider>();
 
+        // Register the in-memory cache service to enable caching of data within the application, which can improve performance by reducing the need to repeatedly fetch or compute data that doesn't change frequently
+        builder.Services.AddMemoryCache();
+
+        //Access within the current request scope, which can be used to store and retrieve user-specific information such as the user's identity, roles, or other context data that may be needed across different services during the processing of a request
+        builder.Services.AddScoped<UserContext>();
+
         return builder;
     }
 
