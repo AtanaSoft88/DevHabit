@@ -11,7 +11,7 @@ namespace DevHabit.Api.Controllers;
 
 [ApiController]
 [Route("users")]
-[Authorize(Roles = $"{Roles.Member}")]
+[Authorize(Roles = $"{Roles.Member}, {Roles.Admin}")]
 // Authorize both roles Admin and Member to get access to the resources
 //[Authorize(Roles = $"{Roles.Admin},{Roles.Member}")]
 public sealed class UsersController(ApplicationDbContext dbContext, UserContext userContext) : ControllerBase
