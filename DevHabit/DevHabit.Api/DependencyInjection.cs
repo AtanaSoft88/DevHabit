@@ -1,4 +1,5 @@
-﻿using System.Text;
+﻿using System.Net.Http.Headers;
+using System.Text;
 using Asp.Versioning;
 using DevHabit.Api.Database;
 using DevHabit.Api.DTOs.Habits;
@@ -164,6 +165,22 @@ public static class DependencyInjection
 
         //Access within the current request scope, which can be used to store and retrieve user-specific information such as the user's identity, roles, or other context data that may be needed across different services during the processing of a request
         builder.Services.AddScoped<UserContext>();
+
+        // Register the GitHub access token service as a scoped service to manage the retrieval and caching of GitHub access tokens for API requests, allowing the application to authenticate with the GitHub API and make authorized requests on behalf of the user
+        builder.Services.AddScoped<GitHubAccessTokenService>();
+        builder.Services.AddTransient<GitHubService>();
+        builder.Services
+            .AddHttpClient("github")
+            .ConfigureHttpClient(client =>
+            {
+                client.BaseAddress = new Uri("https://api.github.com");
+
+                client.DefaultRequestHeaders
+                    .UserAgent.Add(new ProductInfoHeaderValue("DevHabit", "1.0"));
+
+                client.DefaultRequestHeaders
+                    .Accept.Add(new MediaTypeWithQualityHeaderValue("application/vnd.github+json"));
+            });
 
         return builder;
     }
