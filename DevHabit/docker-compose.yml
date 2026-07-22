@@ -8,6 +8,7 @@ services:
       - 5000:8080
       - 5001:8081
     environment:
+      - ConnectionStrings__PostgresDatabase=${DB_CONNECTION_STRING}
       # Seq
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://devhabit.seq:5341/ingest/otlp
       - OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf
@@ -20,7 +21,8 @@ services:
     environment:
       POSTGRES_DB: devhabit
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_HOST_AUTH_METHOD: trust # access without password for local development
       
     volumes:
       - ./.containers/postgres_data:/var/lib/postgresql/data
